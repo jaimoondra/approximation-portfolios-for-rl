@@ -2,15 +2,17 @@ import numpy as np
 import json
 import argparse
 import os
-from Fair_Taxi_MDP_Penalty_V2 import Fair_Taxi_MDP_Penalty_V2
+from src.environments.taxi.Fair_Taxi_MDP_Penalty_V2 import Fair_Taxi_MDP_Penalty_V2
 
 import tqdm
 log = False
 global p, fair_env
 p = 1
 fair_env = None
-def run_NSW_Q_learning(Q, do_train: bool, episodes: int, alpha: float,  epsilon: float, gamma: float, 
-                       nsw_lambda: float, init_val: float, dim_factor: float, tolerance: float, 
+
+
+def run_NSW_Q_learning(Q, do_train: bool, episodes: int, alpha: float,  epsilon: float, gamma: float,
+                       nsw_lambda: float, init_val: float, dim_factor: float, tolerance: float,
                        file_name: str, mode: str, non_stationary: bool, run: int, use_p_mean: bool = True):
     global log
     """
@@ -50,9 +52,9 @@ def run_NSW_Q_learning(Q, do_train: bool, episodes: int, alpha: float,  epsilon:
     else:
         if Q is None:
             raise ValueError
-        
+
     Num = np.full(fair_env.observation_space.n, epsilon, dtype=float)   # for epsilon
-    
+
     loss_data, nsw_data, total_data, p_mean_data = [], [], [], []
 
     best_p_mean = -np.inf
@@ -91,8 +93,8 @@ def run_NSW_Q_learning(Q, do_train: bool, episodes: int, alpha: float,  epsilon:
                 max_action = argmax_nsw(reward, gamma*Q[next], nsw_lambda)
             else: raise ValueError('Must have a mode')
             Q[state, action] = Q[state, action] + alpha*(reward + gamma*Q[next, max_action] - Q[state, action])
-            
-            
+
+
             Num[state] *= dim_factor  # epsilon diminish over time
             state = next
             R_acc += np.power(gamma,c)*reward
@@ -106,24 +108,15 @@ def run_NSW_Q_learning(Q, do_train: bool, episodes: int, alpha: float,  epsilon:
         R_acc = np.where(R_acc < 0, 0, R_acc) # Replace the negatives with 0
         R_acc = R_acc + nsw_lambda
         R_acc = np.where(R_acc <= 0, nsw_lambda, R_acc)
-        nsw_score = np.power(np.product(R_acc), 1/len(R_acc))
+        # nsw_score = np.power(np.product(R_acc), 1/len(R_acc))
+        nsw_score = np.power(np.prod(R_acc), 1/len(R_acc))
         if use_p_mean:
             p_mean = nsw(R_acc, 0) # bec the vector is already modifued, use llambda 0
         else:
             p_mean = weighted_sum(R_acc, 0)
 
-        # if do_train:
-        #     _, _, val_p_mean_data = run_NSW_Q_learning(Q = np.copy(Q), do_train=False, episodes=episodes, alpha=alpha, epsilon=epsilon, mode=mode, gamma=gamma, 
-        #                         nsw_lambda=nsw_lambda, init_val=init_val, non_stationary=non_stationary, 
-        #                         dim_factor=dim_factor, tolerance=tolerance, file_name=file_name, run=0)
-        #     val_p_mean = np.mean(val_p_mean_data)
-        #     if log:
-        #         print(f'Episode: {i}, pmean: {p_mean}, val_p_mean: {val_p_mean}')
-
-        # else:
         val_p_mean = p_mean
 
-        
         if best_R_acc is None:
             best_R_acc = R_acc
             best_episode = i
@@ -139,11 +132,8 @@ def run_NSW_Q_learning(Q, do_train: bool, episodes: int, alpha: float,  epsilon:
         if log:
             print('Accumulated reward: {}\nLoss: {}\nAverage Epsilon: {}\nNSW: {}\n'.format(R_acc,loss,np.mean(avg),nsw_score))
 
-
-
     str = 'immd_' if mode == 'immediate' else ''
 
-    
     if do_train:
         print('FINISH TRAINING NSW Q LEARNING')
         print('Best episode: ', best_episode)
@@ -151,7 +141,7 @@ def run_NSW_Q_learning(Q, do_train: bool, episodes: int, alpha: float,  epsilon:
         Q = full_Q_table[best_episode-1]
         # print(f'Saving at policies/optimal_policy_p_{p}')
         # np.save(f'policies/optimal_policy_p_{p}', Q)
-    
+
     return best_p_mean, best_R_acc, p_mean_data
 
 
@@ -166,11 +156,13 @@ def argmax_nsw(R, gamma_Q, nsw_lambda):
         action = np.argmax(nsw_vals)
     return action
 
-def nsw_old(vec, nsw_lambda): 
+
+def nsw_old(vec, nsw_lambda):
     '''Helper function for run_NSW_Q_learning'''
     vec = vec + nsw_lambda
     vec = np.where(vec <= 0, nsw_lambda, vec)  # replace any negative values or zeroes with lambda
     return np.sum(np.log(vec))    # numpy uses natural log
+
 
 def nsw(vec, nsw_lambda):
     global p
@@ -179,11 +171,11 @@ def nsw(vec, nsw_lambda):
     sum = np.sum(np.power(vec, p))
     return np.power(sum / len(vec), 1/p)
 
+
 def weighted_sum(vec, nsw_lambda):
     global w
     vec = np.array(vec)*np.array(w)
     return np.sum(vec)
-
 
 
 def get_optimum(p_val, seed = 1122, eval=False, load_p = None):
@@ -199,7 +191,7 @@ def get_optimum(p_val, seed = 1122, eval=False, load_p = None):
         print("Policy loaded successfully.")
         best_p_mean, best_R_acc = np.load(file_path, allow_pickle=True)
         return best_p_mean, best_R_acc
-    
+
     # Default values for each argument
     fuel = 1000  # Timesteps each episode
     episodes = 150  # Number of episodes
@@ -214,42 +206,38 @@ def get_optimum(p_val, seed = 1122, eval=False, load_p = None):
     size = 6  # Grid size of the world
     file_name = ''  # Name of .npy file
     mode = 'myopic'  # Action selection mode
-    # loc_coords = [[0, 0], [0, 5], [3, 2]]  # Location coordinates
-    # dest_coords = [[0, 4], [5, 0], [3, 3]]  # Destination coordinates
-    loc_coords = [[0,0], [0,5], [3,0], [1,0]]
-    dest_coords = [[1,5], [5,0], [3,3], [0,3]]
-    # loc_coords = [[0,5], [4, 0], [0,3], [0,1], [4,3], [3,2]]
-    # dest_coords = [[5,0], [0, 4], [3,0], [4,1], [4, 5], [3,3]]
+    loc_coords = [[0,0], [0,5], [3,0], [1,0]]   # Location coordinates
+    dest_coords = [[1,5], [5,0], [3,3], [0,3]]  # Destination coordinates
     non_stat = True  # Whether non-stationary policy
 
-    
-    fair_env = Fair_Taxi_MDP_Penalty_V2(size, loc_coords, dest_coords, fuel, 
-                            output_path='Taxi_MDP/NSW_Q_learning/run_', fps=4)
-    fair_env.seed(seed)
-    # fair_env.seed(1)
+
+    fair_env = Fair_Taxi_MDP_Penalty_V2(size, loc_coords, dest_coords, fuel,
+                                        output_path='Taxi_MDP/NSW_Q_learning/run_', fps=4)
+    # fair_env.seed(seed)
 
     best_p_mean = -np.inf
     best_R_acc = None
     if not eval:
         for _ in range(3):
-            p_mean, R_acc, _ = run_NSW_Q_learning(Q = None, do_train=True, episodes=episodes, alpha=alpha, epsilon=epsilon, mode=mode, gamma=gamma, 
-                                nsw_lambda=nsw_lambda, init_val=init_val, non_stationary=non_stat, 
-                                dim_factor=dim_factor, tolerance=tolerance, file_name=file_name, run=0)
+            p_mean, R_acc, _ = run_NSW_Q_learning(Q = None, do_train=True, episodes=episodes, alpha=alpha, epsilon=epsilon, mode=mode, gamma=gamma,
+                                                  nsw_lambda=nsw_lambda, init_val=init_val, non_stationary=non_stat,
+                                                  dim_factor=dim_factor, tolerance=tolerance, file_name=file_name, run=0)
             if p_mean>best_p_mean:
                 best_p_mean=p_mean
                 best_R_acc = R_acc
             if best_R_acc is None:
                 best_R_acc = R_acc
-        np.save(file_path, [best_p_mean, best_R_acc])
+
+        # np.save(file_path, [best_p_mean, best_R_acc])
         return best_p_mean, best_R_acc
     else:
         print(f"Evaluating p{load_p} optimal policy at p{p_val}")
         Q = np.load(f'policies/optimal_policy_p_{load_p}.npy')
-        p_mean, R_acc, _ = run_NSW_Q_learning(Q = Q, do_train=False, episodes=episodes, alpha=alpha, epsilon=epsilon, mode=mode, gamma=gamma, 
-                                nsw_lambda=nsw_lambda, init_val=init_val, non_stationary=non_stat, 
-                                dim_factor=dim_factor, tolerance=tolerance, file_name=file_name, run=0)
+        p_mean, R_acc, _ = run_NSW_Q_learning(Q = Q, do_train=False, episodes=episodes, alpha=alpha, epsilon=epsilon, mode=mode, gamma=gamma,
+                                              nsw_lambda=nsw_lambda, init_val=init_val, non_stationary=non_stat,
+                                              dim_factor=dim_factor, tolerance=tolerance, file_name=file_name, run=0)
         return p_mean, R_acc
-    
+
 
 def get_optimum_weighted(w_val, seed = 1122, eval=False, load_p = None):
     global w, fair_env
@@ -264,7 +252,7 @@ def get_optimum_weighted(w_val, seed = 1122, eval=False, load_p = None):
         print("Policy loaded successfully.")
         best_p_mean, best_R_acc = np.load(file_path, allow_pickle=True)
         return best_p_mean, best_R_acc
-    
+
     # Default values for each argument
     fuel = 1000  # Timesteps each episode
     episodes = 150  # Number of episodes
@@ -287,9 +275,9 @@ def get_optimum_weighted(w_val, seed = 1122, eval=False, load_p = None):
     # dest_coords = [[5,0], [0, 4], [3,0], [4,1], [4, 5], [3,3]]
     non_stat = True  # Whether non-stationary policy
 
-    
-    fair_env = Fair_Taxi_MDP_Penalty_V2(size, loc_coords, dest_coords, fuel, 
-                            output_path='Taxi_MDP/NSW_Q_learning/run_', fps=4)
+
+    fair_env = Fair_Taxi_MDP_Penalty_V2(size, loc_coords, dest_coords, fuel,
+                                        output_path='Taxi_MDP/NSW_Q_learning/run_', fps=4)
     fair_env.seed(seed)
     # fair_env.seed(1)
 
@@ -297,9 +285,9 @@ def get_optimum_weighted(w_val, seed = 1122, eval=False, load_p = None):
     best_R_acc = None
     if not eval:
         for _ in range(3):
-            p_mean, R_acc, _ = run_NSW_Q_learning(Q = None, do_train=True, episodes=episodes, alpha=alpha, epsilon=epsilon, mode=mode, gamma=gamma, 
-                                nsw_lambda=nsw_lambda, init_val=init_val, non_stationary=non_stat, 
-                                dim_factor=dim_factor, tolerance=tolerance, file_name=file_name, run=0, use_p_mean=False)
+            p_mean, R_acc, _ = run_NSW_Q_learning(Q = None, do_train=True, episodes=episodes, alpha=alpha, epsilon=epsilon, mode=mode, gamma=gamma,
+                                                  nsw_lambda=nsw_lambda, init_val=init_val, non_stationary=non_stat,
+                                                  dim_factor=dim_factor, tolerance=tolerance, file_name=file_name, run=0, use_p_mean=False)
             if p_mean>best_p_mean:
                 best_p_mean=p_mean
                 best_R_acc = R_acc
@@ -310,9 +298,8 @@ def get_optimum_weighted(w_val, seed = 1122, eval=False, load_p = None):
     else:
         print(f"Evaluating p{load_p} optimal policy at p{p_val}")
         Q = np.load(f'policies/optimal_policy_p_{load_p}.npy')
-        p_mean, R_acc, _ = run_NSW_Q_learning(Q = Q, do_train=False, episodes=episodes, alpha=alpha, epsilon=epsilon, mode=mode, gamma=gamma, 
-                                nsw_lambda=nsw_lambda, init_val=init_val, non_stationary=non_stat, 
-                                dim_factor=dim_factor, tolerance=tolerance, file_name=file_name, run=0)
+        p_mean, R_acc, _ = run_NSW_Q_learning(Q = Q, do_train=False, episodes=episodes, alpha=alpha, epsilon=epsilon, mode=mode, gamma=gamma,
+                                              nsw_lambda=nsw_lambda, init_val=init_val, non_stationary=non_stat,
+                                              dim_factor=dim_factor, tolerance=tolerance, file_name=file_name, run=0)
         return p_mean, R_acc
 
-    

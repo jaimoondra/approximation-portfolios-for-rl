@@ -1,8 +1,5 @@
 from src.p_mean import generalized_p_mean, get_optimum_vector, get_optimum_value
 import numpy as np
-from scipy import stats
-from typing import List, Tuple, Union
-from scipy.optimize import minimize
 from scipy.optimize import differential_evolution
 
 
@@ -96,8 +93,8 @@ def budget_portfolio_with_suboptimalities(initial_p, K, get_optimum_policy, get_
                 policy_right, p_right = sorted_portfolio[i + 1], sorted_portfolio[i + 1].p
                 # p_right, policy_right = sorted_portfolio[i + 1]
 
-                perf_right_right = get_performance(policy_right, p_right) #optimal value for the p in the right side of the interval
-                perf_left_right = get_performance(policy_left, p_right) #value of the policy in the left side of the interval evaluted w.r.t p in the right side of the interval
+                perf_right_right = get_performance(policy_right.id, p_right) #optimal value for the p in the right side of the interval
+                perf_left_right = get_performance(policy_left.id, p_right) #value of the policy in the left side of the interval evaluted w.r.t p in the right side of the interval
                 if perf_right_right <= 1e-12:
                     print("Score too small. Numerical instability")
                     continue
@@ -121,7 +118,7 @@ def budget_portfolio_with_suboptimalities(initial_p, K, get_optimum_policy, get_
     return portfolio
 
 
-def line_search(vectors, current_vector, start_p, alpha, precision=1e-4, upper_bound=1, mu=0.5, variant=1):
+def line_search(get_optimum_policy, get_performance, current_policy, start_p, alpha, precision=1e-4, upper_bound=1, mu=0.5, variant=1):
     """
     Given a list of vectors, a current vector, a starting value for p, a parameter alpha \in (0, 1), a precision value, an upper bound for p, and a weight mu for the line search, returns a value of p such that the current vector is an alpha-approximation for all generalized p-means between starting value of p and the returned value of p.
     :param vectors: array of vectors in the domain (e.g., each vector is a score vector for a reward function)
@@ -136,28 +133,34 @@ def line_search(vectors, current_vector, start_p, alpha, precision=1e-4, upper_b
     lower_bound = start_p                                   # Initialize the lower bound
     number_of_oracle_calls = 0
 
-    opt_upper = get_optimum_value(vectors, upper_bound)        # Find the vector that maximizes the generalized p-mean function, replace with your function if needed
+    policy = get_optimum_policy(upper_bound)
+    opt_upper = get_performance(policy, upper_bound)  # Find the value of the generalized p-mean function that maximizes the function, replace with your function if needed
+    # opt_upper = get_optimum_value(vectors, upper_bound)        # Find the vector that maximizes the generalized p-mean function, replace with your function if needed
     number_of_oracle_calls = number_of_oracle_calls + 1
 
-    while generalized_p_mean(current_vector, lower_bound) < alpha * opt_upper:                           # Iterate until current_vector is not an alpha-approximation
+    while generalized_p_mean(current_policy, lower_bound) < alpha * opt_upper:                           # Iterate until current_vector is not an alpha-approximation
         q = mu * lower_bound + (1 - mu) * upper_bound
-        opt_q = get_optimum_value(vectors, q)        # Find the vector that maximizes the generalized p-mean function, replace with your function if needed
+        policy_q = get_optimum_policy(q)          # Get the optimal policy for the current value of p
+        opt_q = get_performance(policy_q, q)  # Find the value of the generalized p-mean function that maximizes the function, replace with your function if needed
+        # opt_q = get_optimum_value(vectors, q)        # Find the vector that maximizes the generalized p-mean function, replace with your function if needed
         number_of_oracle_calls = number_of_oracle_calls + 1
 
         # If the value of the function is at least alpha times the optimal value, then current_vector is an alpha-approximation for all q in [lower_bound, p]
         # Therefore, update the lower bound and the value of the function
         threshold = (alpha + precision * (1 - alpha)) if variant == 1 else np.sqrt(alpha)
-        if generalized_p_mean(current_vector, lower_bound) >= threshold * opt_q:
+        if generalized_p_mean(current_policy, lower_bound) >= threshold * opt_q:
             lower_bound = q
         # Otherwise, update the upper bound
         else:
             upper_bound = q
-            opt_upper = get_optimum_value(vectors, upper_bound)
+            policy_upper = get_optimum_policy(upper_bound)  # Get the optimal policy for the new upper bound
+            opt_upper = get_performance(policy_upper, upper_bound)  # Find the value of the generalized p-mean function that maximizes the function, replace with your function if needed
+            # opt_upper = get_optimum_value(vectors, upper_bound)
 
     return upper_bound, number_of_oracle_calls
 
 
-def portfolio_with_line_search(vectors, alpha, mu=0.5, variant=1):
+def portfolio_with_line_search(get_optimum_policy, get_performance, d, alpha, mu=0.5, variant=1):
     """
     Given a list of vectors and a parameter alpha \in (0, 1), returns an alpha-approximate portfolio for the generalized p-mean functions, p \in [-\infty, 1].
     :param vectors: iterable of vectors
@@ -168,23 +171,30 @@ def portfolio_with_line_search(vectors, alpha, mu=0.5, variant=1):
     """
     portfolio = Portfolio('p-Mean Portfolio')
 
-    d = len(vectors[0])                     # Dimension of the vectors
     p = np.log(d)/np.log(alpha)             # Start with the value of p that approximates p = - \infty
-    vector = get_optimum_vector(vectors, p)  # Find the vector that maximizes the generalized p-mean function
-    portfolio.add_policy(Policy(get_optimum_vector(vectors, p), p=p))
+    # vector = get_optimum_vector(vectors, p)  # Find the vector that maximizes the generalized p-mean function
+    vector = get_optimum_policy(p)          # Get the optimal policy for the initial p
+    portfolio.add_policy(Policy(vector, p=p))
     prev_p = p
     number_of_oracle_calls = 0
 
     while p < 1:                            # Iterate until p = 1
         # Find the next value of p using line search
-        p, iteration_oracle_calls = line_search(vectors=vectors, current_vector=vector, start_p=p, alpha=alpha, upper_bound=1, mu=mu, variant=variant)
+        # p, iteration_oracle_calls = line_search(vectors=vectors, current_vector=vector, start_p=p, alpha=alpha, upper_bound=1, mu=mu, variant=variant)
+        p, iteration_oracle_calls = line_search(
+            get_optimum_policy=get_optimum_policy,
+            get_performance=get_performance,
+            current_policy=vector,
+            start_p=p, alpha=alpha, upper_bound=1, mu=mu, variant=variant
+        )
 
         # Check if the vector is already in the portfolio
         if not any(tuple(policy.id) == tuple(vector) for policy in portfolio):
             # Add vector to the portfolio if it is not already there
             portfolio.add_policy(Policy(vector, p=prev_p))
 
-        vector = get_optimum_vector(vectors, p)
+        # vector = get_optimum_vector(vectors, p)
+        vector = get_optimum_policy(p)      # Get the optimal policy for the new p
         prev_p = p
         number_of_oracle_calls = number_of_oracle_calls + iteration_oracle_calls
 
@@ -225,7 +235,7 @@ def compute_portfolio_worst_approx_ratio(
         # 1) Evaluate each policy in the portfolio
         best_portfolio_val = 0.0
         for policy in portfolio.policies:
-            val = get_performance(policy, p_val)
+            val = get_performance(policy.id, p_val)
             if val > best_portfolio_val:
                 best_portfolio_val = val
 
