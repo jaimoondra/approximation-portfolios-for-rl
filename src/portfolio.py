@@ -138,7 +138,7 @@ def line_search(get_optimum_policy, get_performance, current_policy, start_p, al
     # opt_upper = get_optimum_value(vectors, upper_bound)        # Find the vector that maximizes the generalized p-mean function, replace with your function if needed
     number_of_oracle_calls = number_of_oracle_calls + 1
 
-    while generalized_p_mean(current_policy, lower_bound) < alpha * opt_upper:                           # Iterate until current_vector is not an alpha-approximation
+    while (generalized_p_mean(current_policy, lower_bound) < alpha * opt_upper) and (upper_bound - lower_bound > precision):                           # Iterate until current_vector is not an alpha-approximation
         q = mu * lower_bound + (1 - mu) * upper_bound
         policy_q = get_optimum_policy(q)          # Get the optimal policy for the current value of p
         opt_q = get_performance(policy_q, q)  # Find the value of the generalized p-mean function that maximizes the function, replace with your function if needed

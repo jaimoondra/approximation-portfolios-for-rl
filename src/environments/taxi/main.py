@@ -137,10 +137,10 @@ def run_NSW_Q_learning(Q, do_train: bool, episodes: int, alpha: float,  epsilon:
     if do_train:
         print('FINISH TRAINING NSW Q LEARNING')
         print('Best episode: ', best_episode)
-        print('Best val p: ', val_p_mean)
+        print('Best p mean value: ', val_p_mean)
         Q = full_Q_table[best_episode-1]
-        # print(f'Saving at policies/optimal_policy_p_{p}')
-        # np.save(f'policies/optimal_policy_p_{p}', Q)
+        print(f'Saving at policies/optimal_policy_p_{p}')
+        np.save(f'policies/optimal_policy_p_{p}', Q)
 
     return best_p_mean, best_R_acc, p_mean_data
 
@@ -168,8 +168,16 @@ def nsw(vec, nsw_lambda):
     global p
     vec = vec + nsw_lambda
     vec = np.where(vec <= 0, nsw_lambda, vec)
-    sum = np.sum(np.power(vec, p))
-    return np.power(sum / len(vec), 1/p)
+
+    if p == 0:
+        return np.prod(vec) ** (1 / len(vec))
+
+    vec_min = np.min(vec)
+    y = vec / vec_min
+    z = (1/len(y)) * np.sum(np.power(y, p))
+    z = np.power(z, 1/p) * vec_min
+
+    return z
 
 
 def weighted_sum(vec, nsw_lambda):
@@ -178,12 +186,12 @@ def weighted_sum(vec, nsw_lambda):
     return np.sum(vec)
 
 
-def get_optimum(p_val, seed = 1122, eval=False, load_p = None):
+def get_optimum(p_val, seed = 1122, eval=False, load_p = None, episodes=150):
     global p, fair_env
     p = p_val
     file_path = f'policies/{np.round(p_val, 3)}_{seed}_policy.npy'
     # file_path = f'policies/{p_val}_policy.npy'
-    print('Oracle Call')
+    print('Oracle Call for p =', p_val)
 
     # Check if the file exists
     if os.path.exists(file_path):
@@ -194,7 +202,7 @@ def get_optimum(p_val, seed = 1122, eval=False, load_p = None):
 
     # Default values for each argument
     fuel = 1000  # Timesteps each episode
-    episodes = 150  # Number of episodes
+    episodes = episodes  # Number of episodes
     alpha = 0.01  # Alpha learning rate
     alpha_N = False  # Whether to use 1/N for alpha
     epsilon = 0.1  # Exploration rate
@@ -210,10 +218,8 @@ def get_optimum(p_val, seed = 1122, eval=False, load_p = None):
     dest_coords = [[1,5], [5,0], [3,3], [0,3]]  # Destination coordinates
     non_stat = True  # Whether non-stationary policy
 
-
     fair_env = Fair_Taxi_MDP_Penalty_V2(size, loc_coords, dest_coords, fuel,
                                         output_path='Taxi_MDP/NSW_Q_learning/run_', fps=4)
-    # fair_env.seed(seed)
 
     best_p_mean = -np.inf
     best_R_acc = None
@@ -228,7 +234,7 @@ def get_optimum(p_val, seed = 1122, eval=False, load_p = None):
             if best_R_acc is None:
                 best_R_acc = R_acc
 
-        # np.save(file_path, [best_p_mean, best_R_acc])
+        np.save(file_path, [best_p_mean, best_R_acc])
         return best_p_mean, best_R_acc
     else:
         print(f"Evaluating p{load_p} optimal policy at p{p_val}")
