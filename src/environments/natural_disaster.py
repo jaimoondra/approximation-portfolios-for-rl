@@ -8,9 +8,16 @@ from pprint import pprint
 import csv
 import pandas as pd
 
+'''
+TO DO:
+08/11/2025
+- Output rewards AND total allocation by cluster
+- Consider how to add global constraints. For example, I want an additional reward to be given when allocating to cluster 2
+'''
+
 
 # Aggregate preferences into single reward
-def compute_single_reward(state, action, next_state, clusters, cluster_idx, k, K, horizon):
+def compute_single_reward(state, action, next_state, clusters, cluster_idx, k, K, horizon, global_bonus=None):
     """
     Computes the reward for a single cluster.
 
@@ -30,7 +37,23 @@ def compute_single_reward(state, action, next_state, clusters, cluster_idx, k, K
     immed_rwd = max(k/10, allocation - increase)
     frac_alleviated = immed_rwd/initial_need
     # return frac_alleviated + allocation/(horizon*K)
-    return .5*allocation/(horizon*K) + .5*frac_alleviated
+    # return .5*allocation/(horizon*K) + .5*frac_alleviated
+    base = 0.5 * allocation/(horizon*K) + 0.5 * frac_alleviated
+    if global_bonus:
+        boost = 0.0
+        # cluster-based (IDs are 1-based in your data)
+        if 'clusters' in global_bonus and (cluster_idx + 1) in global_bonus['clusters']:
+            boost += global_bonus.get('weight', 0.0)
+        # category-based (e.g., income == "Low-Income")
+        if 'category' in global_bonus and clusters[cluster_idx].get('income') == global_bonus['category']:
+            boost += global_bonus.get('weight', 0.0)
+        # optional cap on total boost
+        maxb = global_bonus.get('max_boost', None)
+        if maxb is not None:
+            boost = min(boost, maxb)
+        base *= (1.0 + boost)
+
+    return base
 
 
 # Different policy types
@@ -531,7 +554,7 @@ def generate_random_policy(states, action_space):
     return {state: random.choice(action_space) for state in states}
 
 
-def compute_expected_values(state, action, next_states, clusters, k, K, horizon, prob):
+def compute_expected_values(state, action, next_states, clusters, k, K, horizon, prob, global_bonus=None):
     """
     Computes the expected value per cluster based on the transition probabilities.
 
@@ -551,13 +574,16 @@ def compute_expected_values(state, action, next_states, clusters, k, K, horizon,
     # Normalize rewards based on transition probabilities
     for next_state, prob_next in next_states:
         for i in range(num_clusters):
-            expected_values[i] += compute_single_reward(state, action, next_state, clusters, i, k, K, horizon) * prob * prob_next
+            # expected_values[i] += compute_single_reward(state, action, next_state, clusters, i, k, K, horizon) * prob * prob_next
+            expected_values[i] += compute_single_reward(
+                state, action, next_state, clusters, i, k, K, horizon, global_bonus=global_bonus
+            ) * prob * prob_next
 
     return expected_values
 
 
 def simulate_policy_dynamic_with_tpm(
-        initial_state, clusters, k, K, p, horizon, action_space, policy_functions, epsilon=1e-6
+        initial_state, clusters, k, K, p, horizon, action_space, policy_functions, epsilon=1e-6, global_bonus=None
 ):
     """
     Computes the total expected reward under dynamically selected structured policies without random sampling.
@@ -602,7 +628,9 @@ def simulate_policy_dynamic_with_tpm(
             next_states = generate_feasible_next_states(state, action, num_clusters, k, p)
 
             # Compute the expected values per cluster based on next states
-            expected_values_list = compute_expected_values(state, action, next_states, clusters, k, K, horizon, prob)
+            expected_values_list = compute_expected_values(
+                state, action, next_states, clusters, k, K, horizon, prob,global_bonus=global_bonus
+            )
 
             # Update rewards with proper normalization
             for i in range(num_clusters):

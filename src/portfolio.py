@@ -235,6 +235,7 @@ def compute_portfolio_worst_approx_ratio(
         # 1) Evaluate each policy in the portfolio
         best_portfolio_val = 0.0
         for policy in portfolio.policies:
+            # print(policy)
             val = get_performance(policy.id, p_val)
             if val > best_portfolio_val:
                 best_portfolio_val = val
