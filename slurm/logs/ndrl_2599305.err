@@ -1,0 +1,47 @@
+multiprocessing.pool.RemoteTraceback: 
+"""
+Traceback (most recent call last):
+  File "/home/pollack9/miniconda3/envs/rl-portfolio/lib/python3.13/multiprocessing/pool.py", line 125, in worker
+    result = (True, func(*args, **kwds))
+                    ~~~~^^^^^^^^^^^^^^^
+  File "/orcd/home/002/pollack9/approximation-portfolios-for-rl/notebooks/natural_disaster/compute_portfolios.py", line 275, in _run_one_scorefile
+    return main(alpha, gridsize, alpha_values, score_file, alpha_0, suffix, outfile_loc)
+  File "/orcd/home/002/pollack9/approximation-portfolios-for-rl/notebooks/natural_disaster/compute_portfolios.py", line 235, in main
+    arr = pd.read_csv(score_fname).values  # (M, N)
+          ~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/home/pollack9/miniconda3/envs/rl-portfolio/lib/python3.13/site-packages/pandas/io/parsers/readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+  File "/home/pollack9/miniconda3/envs/rl-portfolio/lib/python3.13/site-packages/pandas/io/parsers/readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+  File "/home/pollack9/miniconda3/envs/rl-portfolio/lib/python3.13/site-packages/pandas/io/parsers/readers.py", line 1620, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/home/pollack9/miniconda3/envs/rl-portfolio/lib/python3.13/site-packages/pandas/io/parsers/readers.py", line 1880, in _make_engine
+    self.handles = get_handle(
+                   ~~~~~~~~~~^
+        f,
+        ^^
+    ...<6 lines>...
+        storage_options=self.options.get("storage_options", None),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/pollack9/miniconda3/envs/rl-portfolio/lib/python3.13/site-packages/pandas/io/common.py", line 873, in get_handle
+    handle = open(
+        handle,
+    ...<3 lines>...
+        newline="",
+    )
+FileNotFoundError: [Errno 2] No such file or directory: '../../data/natural_disaster/policy_rewards_bonus_5_0.05.csv'
+"""
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/orcd/home/002/pollack9/approximation-portfolios-for-rl/notebooks/natural_disaster/compute_portfolios.py", line 318, in <module>
+    for _ in pool.imap_unordered(_run_one_scorefile, tasks, chunksize=1):
+             ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pollack9/miniconda3/envs/rl-portfolio/lib/python3.13/multiprocessing/pool.py", line 873, in next
+    raise value
+FileNotFoundError: [Errno 2] No such file or directory: '../../data/natural_disaster/policy_rewards_bonus_5_0.05.csv'
+srun: error: node1619: task 0: Exited with exit code 1

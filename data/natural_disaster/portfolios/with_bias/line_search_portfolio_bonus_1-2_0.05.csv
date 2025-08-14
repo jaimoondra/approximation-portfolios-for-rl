@@ -1,0 +1,4 @@
+K,alpha,oracle_calls,approximation,p_values
+1,0.1,1,0.8538968085560964,[np.float64(-1.079)]
+2,0.4,6,0.938673890238118,"[np.float64(-2.712), np.float64(0.072)]"
+3,0.9500000000000001,251,1.0,"[np.float64(-48.445), np.float64(0.019), np.float64(0.894)]"

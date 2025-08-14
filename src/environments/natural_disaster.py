@@ -19,41 +19,42 @@ TO DO:
 # Aggregate preferences into single reward
 def compute_single_reward(state, action, next_state, clusters, cluster_idx, k, K, horizon, global_bonus=None):
     """
-    Computes the reward for a single cluster.
+    Reward = base term (allocation share + alleviation share)
+             + additive per-unit bonus for clusters in global_bonus['clusters'].
 
-    Args:
-        state (tuple): Current state of unmet needs.
-        action (tuple): Action taken.
-        next_state (tuple): Next state of unmet needs.
-        cluster_idx (int): Index of the cluster.
-        k (int): Increment size for unmet need increase.
-
-    Returns:
-        float: Reward for the specified cluster.
+    Assumptions:
+      - only_effective=True (we bonus min(allocation, current need))
+      - no per-step cap
+      - favored clusters are 1-based ids in global_bonus['clusters']
     """
     initial_need = clusters[cluster_idx]['initial_need']
     allocation = action[cluster_idx]
-    increase = max(0, next_state[cluster_idx] - state[cluster_idx]) if action[cluster_idx] == 0 else 0
-    immed_rwd = max(k/10, allocation - increase)
-    frac_alleviated = immed_rwd/initial_need
-    # return frac_alleviated + allocation/(horizon*K)
-    # return .5*allocation/(horizon*K) + .5*frac_alleviated
-    base = 0.5 * allocation/(horizon*K) + 0.5 * frac_alleviated
-    if global_bonus:
-        boost = 0.0
-        # cluster-based (IDs are 1-based in your data)
-        if 'clusters' in global_bonus and (cluster_idx + 1) in global_bonus['clusters']:
-            boost += global_bonus.get('weight', 0.0)
-        # category-based (e.g., income == "Low-Income")
-        if 'category' in global_bonus and clusters[cluster_idx].get('income') == global_bonus['category']:
-            boost += global_bonus.get('weight', 0.0)
-        # optional cap on total boost
-        maxb = global_bonus.get('max_boost', None)
-        if maxb is not None:
-            boost = min(boost, maxb)
-        base *= (1.0 + boost)
 
-    return base
+    # need increase only possible if we did not allocate to this cluster
+    increase = max(0, next_state[cluster_idx] - state[cluster_idx]) if allocation == 0 else 0
+    immed_rwd = max(k/10, allocation - increase)
+    frac_alleviated = immed_rwd / initial_need
+
+    # base reward (unchanged structure)
+    base = 0.5 * (allocation / (horizon * K)) + 0.5 * frac_alleviated
+    base = allocation / (horizon * K) #+ 0.5 * frac_alleviated
+
+    # --- additive global bonus per unit allocated (effective-only) ---
+    bonus = 0.0
+    if global_bonus and (cluster_idx + 1) in global_bonus.get("clusters", set()):
+        effective_alloc = min(allocation, state[cluster_idx])  # only_effective=True
+
+        unit_mode = global_bonus.get("unit", "k-increments")
+        if unit_mode == "k-increments":
+            units = effective_alloc / k
+        elif unit_mode == "absolute":
+            units = effective_alloc
+        else:
+            raise ValueError("global_bonus['unit'] must be 'k-increments' or 'absolute'.")
+
+        bonus = global_bonus["per_unit_bonus"] * units
+
+    return base + bonus
 
 
 # Different policy types

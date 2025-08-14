@@ -1,0 +1,13 @@
+[Wed Aug 13 19:33:28 EDT 2025] Job 2599305 starting on node1619
+Submit CWD: /home/pollack9/approximation-portfolios-for-rl/slurm
+Project: /home/pollack9/approximation-portfolios-for-rl
+Script : compute_portfolios.py
+CPUs requested: 16
+OUTER_WORKERS : 16
+N_WORKERS_INNER: 1
+Python: 3.13.5
+NumPy : 2.3.2
+Pandas: 2.3.1
+MPL   : 3.10.5
+CPUs  : 192
+[Wed Aug 13 19:33:31 EDT 2025] Launching compute_portfolios.py ...
