@@ -186,6 +186,65 @@ def weighted_sum(vec, nsw_lambda):
     return np.sum(vec)
 
 
+def get_random_policy(seed=1122, eval=False, episodes=150):
+    global p, fair_env
+    p = - np.inf
+    file_path = f'policies/random_{seed}_policy.npy'
+    print('Random Policy Call')
+
+    # Check if the file exists
+    if os.path.exists(file_path):
+        # Load the file using numpy
+        print("Random policy results loaded successfully.")
+        best_p_mean, best_R_acc = np.load(file_path, allow_pickle=True)
+        return best_p_mean, best_R_acc
+
+    # Default values for each argument
+    fuel = 1000  # Timesteps each episode
+    episodes = episodes  # Number of episodes
+    alpha = 0.01  # Alpha learning rate (not used since random policy)
+    alpha_N = False  # Whether to use 1/N for alpha
+    epsilon = 0.10  # Always explore - this makes it random policy
+    gamma = 0.999  # Discount rate
+    nsw_lambda = 1e-4  # Smoothing factor
+    init_val = 30  # Initial values
+    dim_factor = 0.99  # Don't diminish epsilon - keep it at 1.0
+    tolerance = 1e-5  # Loss threshold for Q-values between each episode
+    size = 6  # Grid size of the world
+    file_name = ''  # Name of .npy file
+    mode = 'myopic'  # Action selection mode
+    loc_coords = [[0,0], [0,5], [3,0], [1,0]]   # Location coordinates
+    dest_coords = [[1,5], [5,0], [3,3], [0,3]]  # Destination coordinates
+    non_stat = True  # Whether non-stationary policy
+
+    fair_env = Fair_Taxi_MDP_Penalty_V2(size, loc_coords, dest_coords, fuel,
+                                        output_path='Taxi_MDP/Random_Policy/run_', fps=4)
+
+    best_p_mean = -np.inf
+    best_R_acc = None
+    if not eval:
+        for _ in range(3):
+            p_mean, R_acc, _ = run_NSW_Q_learning(Q = None, do_train=True, episodes=episodes, alpha=alpha, epsilon=epsilon, mode=mode, gamma=gamma,
+                                                  nsw_lambda=nsw_lambda, init_val=init_val, non_stationary=non_stat,
+                                                  dim_factor=dim_factor, tolerance=tolerance, file_name=file_name, run=0)
+            if p_mean>best_p_mean:
+                best_p_mean=p_mean
+                best_R_acc = R_acc
+            if best_R_acc is None:
+                best_R_acc = R_acc
+
+        np.save(file_path, [best_p_mean, best_R_acc])
+        return best_p_mean, best_R_acc
+    else:
+        print("Random policy evaluation (eval=True not applicable)")
+        # For random policy, eval doesn't make sense since there's no policy to load
+        # Just run the random policy
+        p_mean, R_acc, _ = run_NSW_Q_learning(Q = None, do_train=False, episodes=episodes, alpha=alpha, epsilon=epsilon, mode=mode, gamma=gamma,
+                                              nsw_lambda=nsw_lambda, init_val=init_val, non_stationary=non_stat,
+                                              dim_factor=dim_factor, tolerance=tolerance, file_name=file_name, run=0)
+        return p_mean, R_acc
+
+
 def get_optimum(p_val, seed = 1122, eval=False, load_p = None, episodes=150):
     global p, fair_env
     p = p_val

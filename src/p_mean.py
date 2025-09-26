@@ -37,7 +37,7 @@ def generalized_p_mean(x, p, epsilon=1e-12):
     return value
 
 
-def get_optimum_vector(vectors, p, epsilon=1e-12):
+def get_optimum_vector(vectors, p, bias=None, epsilon=1e-12):
     """
     Given a p \in [-\infty, 1] and a list of vectors (each vector is a list of d elements), find the vector that maximizes the generalized p-mean.
     :param vectors: iterable of vectors
@@ -47,32 +47,18 @@ def get_optimum_vector(vectors, p, epsilon=1e-12):
     max_value = -np.inf
     max_vector = None
 
+    if bias is None:
+        def bias(v):
+            return 0
+
     for i in range(len(vectors)):
         vector = vectors[i]
-        value = generalized_p_mean(vector, p, epsilon=epsilon)
+        value = generalized_p_mean(vector, p, epsilon=epsilon) + bias(vector)
         if value > max_value:
             max_value = value
             max_vector = vector
 
     return max_vector
-
-
-def get_optimum_value(vectors, p, epsilon=1e-12):
-    """
-    Given a p \in [-\infty, 1] and a list of vectors (each vector is a list of d elements), find the value of the generalized p-mean function that maximizes the function.
-    :param vectors: iterable of vectors
-    :param p: real number <= 1 or -np.inf
-    :return: the value of the function that maximizes the generalized p-mean
-    """
-    max_value = -np.inf
-
-    for i in range(len(vectors)):
-        vector = vectors[i]
-        value = generalized_p_mean(vector, p, epsilon=epsilon)
-        if value > max_value:
-            max_value = value
-
-    return max_value
 
 
 def generate_p_grid(N, alpha, grid_size=1000, p_mid=None):

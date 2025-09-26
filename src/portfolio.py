@@ -1,4 +1,3 @@
-from src.p_mean import generalized_p_mean, get_optimum_vector, get_optimum_value
 import numpy as np
 from scipy.optimize import differential_evolution
 
@@ -59,6 +58,48 @@ class Portfolio:
 
     def set_oracle_calls(self, oracle_calls):
         self.oracle_calls = oracle_calls
+
+
+def binary_search_portfolio(alpha, get_optimum_policy, get_performance, d=None, K=None, initial_p=None):
+    def optimal_value(p):
+        policy = get_optimum_policy(p)
+        return get_performance(policy, p)
+
+    def gap(a, b):
+        return optimal_value(b)/optimal_value(a)
+
+    if K is None:
+        K = np.inf
+
+    if initial_p is None:
+        if d is None:
+            raise ValueError("You must provide either d or initial_p")
+        initial_p = np.log(d)/np.log(alpha)
+
+    portfolio = Portfolio('Binary Search Portfolio')
+
+    gaps = {
+        (initial_p, 1.0): gap(initial_p, 1.0)
+    }
+    policy_initial = Policy(get_optimum_policy(initial_p), p=initial_p)
+    portfolio.add_policy(policy_initial)
+    oracle_calls = 2
+    while len(portfolio) < K:
+        (a, b), max_gap = max(gaps.items(), key=lambda item: item[1])
+        if max_gap <= 1/alpha:
+            break
+
+        mid = 0.5 * (a + b)
+        policy_mid = Policy(get_optimum_policy(mid), p=mid)
+        portfolio.add_policy(policy_mid)
+
+        del gaps[(a, b)]
+        gaps[(a, mid)] = gap(a, mid)
+        gaps[(mid, b)] = gap(mid, b)
+        oracle_calls += 1
+
+    portfolio.set_oracle_calls(oracle_calls)
+    return portfolio
 
 
 def budget_portfolio_with_suboptimalities(initial_p, K, get_optimum_policy, get_performance):
@@ -138,7 +179,7 @@ def line_search(get_optimum_policy, get_performance, current_policy, start_p, al
     # opt_upper = get_optimum_value(vectors, upper_bound)        # Find the vector that maximizes the generalized p-mean function, replace with your function if needed
     number_of_oracle_calls = number_of_oracle_calls + 1
 
-    while (generalized_p_mean(current_policy, lower_bound) < alpha * opt_upper) and (upper_bound - lower_bound > precision):                           # Iterate until current_vector is not an alpha-approximation
+    while (get_performance(current_policy, lower_bound) < alpha * opt_upper) and (upper_bound - lower_bound > precision):                           # Iterate until current_vector is not an alpha-approximation
         q = mu * lower_bound + (1 - mu) * upper_bound
         policy_q = get_optimum_policy(q)          # Get the optimal policy for the current value of p
         opt_q = get_performance(policy_q, q)  # Find the value of the generalized p-mean function that maximizes the function, replace with your function if needed
@@ -148,7 +189,7 @@ def line_search(get_optimum_policy, get_performance, current_policy, start_p, al
         # If the value of the function is at least alpha times the optimal value, then current_vector is an alpha-approximation for all q in [lower_bound, p]
         # Therefore, update the lower bound and the value of the function
         threshold = (alpha + precision * (1 - alpha)) if variant == 1 else np.sqrt(alpha)
-        if generalized_p_mean(current_policy, lower_bound) >= threshold * opt_q:
+        if get_performance(current_policy, lower_bound) >= threshold * opt_q:
             lower_bound = q
         # Otherwise, update the upper bound
         else:

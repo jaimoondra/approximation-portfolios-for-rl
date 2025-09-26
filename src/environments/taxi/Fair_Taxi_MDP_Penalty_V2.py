@@ -184,7 +184,8 @@ class Fair_Taxi_MDP_Penalty_V2(gym.Env):
                     self.pass_dest = self.dest_coords[0]
                 reward = np.full(len(self.loc_coords), 0+reward_bonus, dtype=float)
             else:   # for invalid pick
-                reward = np.full(len(self.loc_coords), -10+reward_bonus, dtype=float)
+                # reward = np.full(len(self.loc_coords), -10+reward_bonus, dtype=float)
+                reward = np.full(len(self.loc_coords), 0+reward_bonus, dtype=float)
         elif action == 5:   # drop
             if np.array_equal(self.taxi_loc, self.pass_dest) and self.pass_loc == 1:
                 reward = self.generate_reward()
@@ -197,7 +198,8 @@ class Fair_Taxi_MDP_Penalty_V2(gym.Env):
                 self.pass_loc = 0
                 self.pass_dest = None
                 self.pass_idx = None
-                reward = np.full(len(self.loc_coords), -10+reward_bonus, dtype=float)
+                # reward = np.full(len(self.loc_coords), -10+reward_bonus, dtype=float)
+                reward = np.full(len(self.loc_coords), 0+reward_bonus, dtype=float)
         else:
             self.taxi_loc += self._action_to_direct[action]  # taxi move according to the map
             self.taxi_loc = np.where(self.taxi_loc < 0, 0, self.taxi_loc)
